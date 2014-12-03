@@ -16,7 +16,7 @@ import (
 var (
 	username              = flag.String("username", "", "MySQL Username")
 	password              = flag.String("password", "", "MySQL Password")
-	iniFile               = flag.String("inifile", "~/.my.cnf", ".my.cnf file")
+	iniFile               = flag.String("inifile", "/home/clustercheck/.my.cnf", ".my.cnf file")
 	host                  = flag.String("host", "localhost", "MySQL Server")
 	port                  = flag.Int("port", 3306, "MySQL Port")
 	timeout               = flag.String("timeout", "10s", "MySQL connection timeout")
