@@ -26,6 +26,7 @@ var (
 	bindAddr              = flag.String("bindaddr", "", "MySQLChk bind address")
 	forceFail             = false
 	forceUp               = false
+	debug                 = flag.Bool("debug", false, "Debug mode. Will also print successfull 200 HTTP responses to stdout")
 )
 
 func init() {
@@ -147,6 +148,8 @@ func (c *Checker) Handler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	log.Println(remoteIp, "Cluster node OK")
+	if *debug {
+		log.Println(remoteIp, "Cluster node OK")
+	}
 	fmt.Fprint(w, "Cluster node OK\n")
 }
