@@ -29,9 +29,6 @@ var (
 	debug                 = flag.Bool("debug", false, "Debug mode. Will also print successfull 200 HTTP responses to stdout")
 )
 
-func init() {
-	flag.Parse()
-}
 
 func main() {
 	flag.Parse()
