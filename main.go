@@ -67,7 +67,7 @@ func parseConfigFile() {
 
 	content, err := ioutil.ReadFile(*iniFile)
 	if err != nil {
-		//Do something
+		log.Fatalf("error reading config: %v", err)
 	}
 	lines := strings.Split(string(content), "\n")
 
