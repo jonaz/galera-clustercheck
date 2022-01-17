@@ -17,6 +17,7 @@ var (
 	username              = flag.String("username", "", "MySQL Username")
 	password              = flag.String("password", "", "MySQL Password")
 	iniFile               = flag.String("inifile", "/home/clustercheck/.my.cnf", ".my.cnf file")
+	socket                = flag.String("socket", "", "Unix domain socket")
 	host                  = flag.String("host", "localhost", "MySQL Server")
 	port                  = flag.Int("port", 3306, "MySQL Port")
 	timeout               = flag.String("timeout", "10s", "MySQL connection timeout")
@@ -25,9 +26,10 @@ var (
 	requireMaster         = flag.Bool("requiremaster", false, "Cluster available only while node is master")
 	bindPort              = flag.Int("bindport", 8000, "MySQLChk bind port")
 	bindAddr              = flag.String("bindaddr", "", "MySQLChk bind address")
+	debug                 = flag.Bool("debug", false, "Debug mode. Will also print successfull 200 HTTP responses to stdout")
 	forceFail             = false
 	forceUp               = false
-	debug                 = flag.Bool("debug", false, "Debug mode. Will also print successfull 200 HTTP responses to stdout")
+	dataSourceName        = ""
 )
 
 type Checker struct {
@@ -43,7 +45,13 @@ func main() {
 		parseConfigFile()
 	}
 
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%d)/?timeout=%s", *username, *password, *host, *port, *timeout))
+	if *socket != "" {
+		dataSourceName = fmt.Sprintf("%s:%s@unix(%s)/?timeout=%s", *username, *password, *socket, *timeout)
+	} else {
+		dataSourceName = fmt.Sprintf("%s:%s@tcp(%s:%d)/?timeout=%s", *username, *password, *host, *port, *timeout)
+	}
+
+	db, err := sql.Open("mysql", dataSourceName)
 	if err != nil {
 		panic(err.Error())
 	}
