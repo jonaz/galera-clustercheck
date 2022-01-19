@@ -25,9 +25,9 @@ var (
 	username              = flag.String("username", "", "MySQL Username")
 	password              = flag.String("password", "", "MySQL Password")
 	iniFile               = flag.String("inifile", "/etc/galera-clustercheck/my.cnf", "MySQL Option file")
-	socket                = flag.String("socket", "", "Unix domain socket")
-	host                  = flag.String("host", "localhost", "MySQL Server")
-	port                  = flag.Int("port", 3306, "MySQL Port")
+	socket                = flag.String("socket", "/run/mysqld/mysqld.sock", "MySQL Unix socket")
+	host                  = flag.String("host", "", "MySQL server")
+	port                  = flag.Int("port", 3306, "MySQL port")
 	timeout               = flag.String("timeout", "10s", "MySQL connection timeout")
 	availableWhenDonor    = flag.Bool("donor", false, "Cluster available while node is a donor")
 	availableWhenReadonly = flag.Bool("readonly", false, "Cluster available while node is read only")
@@ -53,10 +53,10 @@ func main() {
 		parseConfigFile()
 	}
 
-	if *socket != "" {
-		dataSourceName = fmt.Sprintf("%s:%s@unix(%s)/?timeout=%s", *username, *password, *socket, *timeout)
-	} else {
+	if *host != "" {
 		dataSourceName = fmt.Sprintf("%s:%s@tcp(%s:%d)/?timeout=%s", *username, *password, *host, *port, *timeout)
+	} else {
+		dataSourceName = fmt.Sprintf("%s:%s@unix(%s)/?timeout=%s", *username, *password, *socket, *timeout)
 	}
 
 	db, err := sql.Open("mysql", dataSourceName)
