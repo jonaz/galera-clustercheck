@@ -65,6 +65,7 @@ func main() {
 	}
 
 	db.SetMaxIdleConns(10)
+	db.SetMaxOpenConns(10)
 
 	readOnlyStmt, err := db.Prepare("SHOW GLOBAL VARIABLES LIKE 'read_only'")
 	if err != nil {
