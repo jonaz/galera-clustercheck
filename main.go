@@ -22,8 +22,8 @@ const (
 )
 
 var (
-	username              = flag.String("username", "", "MySQL Username")
-	password              = flag.String("password", "", "MySQL Password")
+	username              = flag.String("username", "", "MySQL username")
+	password              = flag.String("password", "", "MySQL password")
 	iniFile               = flag.String("inifile", "/etc/galera-clustercheck/my.cnf", "MySQL Option file")
 	socket                = flag.String("socket", "/run/mysqld/mysqld.sock", "MySQL Unix socket")
 	host                  = flag.String("host", "", "MySQL server")
@@ -32,8 +32,8 @@ var (
 	availableWhenDonor    = flag.Bool("donor", false, "Cluster available while node is a donor")
 	availableWhenReadonly = flag.Bool("readonly", false, "Cluster available while node is read only")
 	requireMaster         = flag.Bool("requiremaster", false, "Cluster available only while node is master")
-	bindPort              = flag.Int("bindport", 8000, "MySQLChk bind port")
-	bindAddr              = flag.String("bindaddr", "", "MySQLChk bind address")
+	bindAddr              = flag.String("bindaddr", "", "Clustercheck bind address")
+	bindPort              = flag.Int("bindport", 8000, "Clustercheck bind port")
 	debug                 = flag.Bool("debug", false, "Debug mode. Will also print successfull 200 HTTP responses to stdout")
 	forceUp               = false
 	forceDown             = false
