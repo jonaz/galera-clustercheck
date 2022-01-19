@@ -1,0 +1,11 @@
+[Unit]
+Description=Galera Clustercheck service
+
+[Service]
+Type=notify
+ExecStart=/usr/sbin/galera-clustercheck
+DynamicUser=true
+ConfigurationDirectory=galera-clustercheck
+
+[Install]
+WantedBy=default.target
