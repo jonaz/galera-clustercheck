@@ -91,7 +91,6 @@ func main() {
 }
 
 func parseConfigFile() {
-
 	content, err := ioutil.ReadFile(*iniFile)
 	if err != nil {
 		log.Fatalf("error reading config: %v", err)
@@ -127,11 +126,11 @@ func (c *Checker) Up(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Checker) Clustercheck(w http.ResponseWriter, r *http.Request, requireMaster, forceFail, forceUp bool) {
-	remoteIp, _, _ := net.SplitHostPort(r.RemoteAddr)
-
 	var fieldName, readOnly string
 	var wsrepLocalState int
 	var wsrepLocalIndex int
+
+	remoteIp, _, _ := net.SplitHostPort(r.RemoteAddr)
 
 	if forceUp {
 		if *debug {
