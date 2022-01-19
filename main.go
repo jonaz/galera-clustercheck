@@ -111,22 +111,22 @@ func parseConfigFile() {
 }
 
 func (c *Checker) Root(w http.ResponseWriter, r *http.Request) {
-	c.Healthcheck(w, r, *requireMaster, forceFail, forceUp)
+	c.Clustercheck(w, r, *requireMaster, forceFail, forceUp)
 }
 
 func (c *Checker) Master(w http.ResponseWriter, r *http.Request) {
-	c.Healthcheck(w, r, true, forceFail, forceUp)
+	c.Clustercheck(w, r, true, forceFail, forceUp)
 }
 
 func (c *Checker) Fail(w http.ResponseWriter, r *http.Request) {
-	c.Healthcheck(w, r, *requireMaster, true, forceUp)
+	c.Clustercheck(w, r, *requireMaster, true, forceUp)
 }
 
 func (c *Checker) Up(w http.ResponseWriter, r *http.Request) {
-	c.Healthcheck(w, r, *requireMaster, forceFail, true)
+	c.Clustercheck(w, r, *requireMaster, forceFail, true)
 }
 
-func (c *Checker) Healthcheck(w http.ResponseWriter, r *http.Request, requireMaster, forceFail, forceUp bool) {
+func (c *Checker) Clustercheck(w http.ResponseWriter, r *http.Request, requireMaster, forceFail, forceUp bool) {
 	remoteIp, _, _ := net.SplitHostPort(r.RemoteAddr)
 
 	var fieldName, readOnly string
