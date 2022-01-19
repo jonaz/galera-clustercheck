@@ -13,6 +13,13 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+const (
+	STATE_JOINING = 1
+	STATE_DONOR   = 2
+	STATE_JOINED  = 3
+	STATE_SYNCED  = 4
+)
+
 var (
 	username              = flag.String("username", "", "MySQL Username")
 	password              = flag.String("password", "", "MySQL Password")
@@ -58,17 +65,17 @@ func main() {
 
 	db.SetMaxIdleConns(10)
 
-	readOnlyStmt, err := db.Prepare("show global variables like 'read_only'")
+	readOnlyStmt, err := db.Prepare("SHOW GLOBAL VARIABLES LIKE 'read_only'")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	wsrepLocalStateStmt, err := db.Prepare("show global status like 'wsrep_local_state'")
+	wsrepLocalStateStmt, err := db.Prepare("SHOW GLOBAL STATUS LIKE 'wsrep_local_state'")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	wsrepLocalIndexStmt, err := db.Prepare("show global status like 'wsrep_local_index'")
+	wsrepLocalIndexStmt, err := db.Prepare("SHOW GLOBAL STATUS LIKE 'wsrep_local_index'")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -103,23 +110,23 @@ func parseConfigFile() {
 	}
 }
 
-func (c *Checker) Fail(w http.ResponseWriter, r *http.Request) {
-	c.check(w, r, *requireMaster, true, forceUp)
-}
-
-func (c *Checker) Up(w http.ResponseWriter, r *http.Request) {
-	c.check(w, r, *requireMaster, forceFail, true)
+func (c *Checker) Root(w http.ResponseWriter, r *http.Request) {
+	c.Healthcheck(w, r, *requireMaster, forceFail, forceUp)
 }
 
 func (c *Checker) Master(w http.ResponseWriter, r *http.Request) {
-	c.check(w, r, true, forceFail, forceUp)
+	c.Healthcheck(w, r, true, forceFail, forceUp)
 }
 
-func (c *Checker) Root(w http.ResponseWriter, r *http.Request) {
-	c.check(w, r, *requireMaster, forceFail, forceUp)
+func (c *Checker) Fail(w http.ResponseWriter, r *http.Request) {
+	c.Healthcheck(w, r, *requireMaster, true, forceUp)
 }
 
-func (c *Checker) check(w http.ResponseWriter, r *http.Request, requireMaster, forceFail, forceUp bool) {
+func (c *Checker) Up(w http.ResponseWriter, r *http.Request) {
+	c.Healthcheck(w, r, *requireMaster, forceFail, true)
+}
+
+func (c *Checker) Healthcheck(w http.ResponseWriter, r *http.Request, requireMaster, forceFail, forceUp bool) {
 	remoteIp, _, _ := net.SplitHostPort(r.RemoteAddr)
 
 	var fieldName, readOnly string
@@ -128,79 +135,99 @@ func (c *Checker) check(w http.ResponseWriter, r *http.Request, requireMaster, f
 
 	if forceUp {
 		if *debug {
-			log.Println(remoteIp, "Cluster node OK by forceUp true")
+			log.Println(remoteIp, "Node OK by forceUp true")
 		}
-		fmt.Fprint(w, "Cluster node OK by forceUp true\n")
+		fmt.Fprint(w, "Node OK by forceUp true\n")
 		return
 	}
 
 	if forceFail {
 		if *debug {
-			log.Println(remoteIp, "Cluster node FAIL by forceFail true")
+			log.Println(remoteIp, "Node FAIL by forceFail true")
 		}
-		http.Error(w, "Cluster node FAIL by forceFail true\n", http.StatusServiceUnavailable)
+		http.Error(w, "Node FAIL by forceFail true", http.StatusServiceUnavailable)
 		return
 	}
 
-	err := c.wsrepLocalStateStmt.QueryRow().Scan(&fieldName, &wsrepLocalState)
-	if err != nil {
-		log.Println(remoteIp, err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	readOnlyErr := c.readOnlyStmt.QueryRow().Scan(&fieldName, &readOnly)
+	if readOnlyErr != nil {
+		log.Println(remoteIp, readOnlyErr.Error())
+		http.Error(w, readOnlyErr.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if wsrepLocalState == 2 && *availableWhenDonor {
+	if readOnly == "ON" && !*availableWhenReadonly {
+		log.Println(remoteIp, "Node is read_only")
+		http.Error(w, "Node is read_only", http.StatusServiceUnavailable)
+		return
+	}
+
+	wsrepLocalStateErr := c.wsrepLocalStateStmt.QueryRow().Scan(&fieldName, &wsrepLocalState)
+	if wsrepLocalStateErr != nil {
+		log.Println(remoteIp, wsrepLocalStateErr.Error())
+		http.Error(w, wsrepLocalStateErr.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	switch wsrepLocalState {
+	case STATE_JOINING:
 		if *debug {
-			log.Println(remoteIp, "Cluster node in Donor mode")
+			log.Println(remoteIp, "Node in Joining state")
 		}
-		fmt.Fprint(w, "Cluster node in Donor mode\n")
+		http.Error(w, "Node in Joining state", http.StatusServiceUnavailable)
 		return
-	}
-
-	if wsrepLocalState != 4 {
-		if *debug {
-			log.Println(remoteIp, "Cluster node is unavailable")
-		}
-		http.Error(w, "Cluster node is unavailable", http.StatusServiceUnavailable)
-		return
-	}
-
-	if !*availableWhenReadonly {
-		err = c.readOnlyStmt.QueryRow().Scan(&fieldName, &readOnly)
-		if err != nil {
-			log.Println(remoteIp, "Unable to determine read only setting")
-			http.Error(w, "Unable to determine read only setting", http.StatusInternalServerError)
-			return
-		} else if readOnly == "ON" {
-			log.Println(remoteIp, "Cluster node is read only")
-			http.Error(w, "Cluster node is read only", http.StatusServiceUnavailable)
-			return
-		}
-	}
-
-	if requireMaster {
-		err := c.wsrepLocalIndexStmt.QueryRow().Scan(&fieldName, &wsrepLocalIndex)
-		if err != nil {
-			log.Println(remoteIp, err.Error())
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		} else if wsrepLocalIndex != 0 {
+	case STATE_DONOR:
+		if *availableWhenDonor {
 			if *debug {
-				log.Println(remoteIp, "Cluster node is not 'wsrep_local_index==0'")
+				log.Println(remoteIp, "Node in Donor state")
 			}
-			http.Error(w, "Cluster node is not 'wsrep_local_index==0'", http.StatusServiceUnavailable)
+			fmt.Fprint(w, "Node in Donor state\n")
+			return
+		} else {
+			if *debug {
+				log.Println(remoteIp, "Node in Donor state")
+			}
+			http.Error(w, "Node in Donor state", http.StatusServiceUnavailable)
 			return
 		}
+	case STATE_JOINED:
 		if *debug {
-			log.Println(remoteIp, "Cluster node OK")
+			log.Println(remoteIp, "Node in Joined state")
 		}
-		fmt.Fprint(w, "Cluster node is SYNCED and wsrep_local_index==0\n")
+		http.Error(w, "Node in Joined state", http.StatusServiceUnavailable)
+		return
+	case STATE_SYNCED:
+		if requireMaster {
+			wsrepLocalIndexErr := c.wsrepLocalIndexStmt.QueryRow().Scan(&fieldName, &wsrepLocalIndex)
+			if wsrepLocalIndexErr != nil {
+				log.Println(remoteIp, wsrepLocalIndexErr.Error())
+				http.Error(w, wsrepLocalIndexErr.Error(), http.StatusInternalServerError)
+				return
+			}
+			if wsrepLocalIndex == 0 {
+				if *debug {
+					log.Println(remoteIp, "Node in Synced state and 'wsrep_local_index==0'")
+				}
+				fmt.Fprintf(w, "Node in Synced state and 'wsrep_local_index==0'\n")
+				return
+			} else if wsrepLocalIndex != 0 {
+				if *debug {
+					log.Println(remoteIp, "Node in Synced state but not 'wsrep_local_index==0'")
+				}
+				http.Error(w, "Node in Synced state but not 'wsrep_local_index==0'", http.StatusServiceUnavailable)
+				return
+			}
+		}
+		if *debug {
+			log.Println(remoteIp, "Node in Synced state")
+		}
+		fmt.Fprint(w, "Node in Synced state\n")
+		return
+	default:
+		if *debug {
+			log.Println(remoteIp, fmt.Sprintf("Node in an unknown state (%d)", wsrepLocalState))
+		}
+		http.Error(w, fmt.Sprintf("Node in an unknown state (%d)", wsrepLocalState), http.StatusServiceUnavailable)
 		return
 	}
-
-	if *debug {
-		log.Println(remoteIp, "Cluster node OK")
-	}
-
-	fmt.Fprint(w, "Cluster node OK\n")
 }
