@@ -34,8 +34,8 @@ var (
 	bindPort              = flag.Int("bindport", 8000, "MySQLChk bind port")
 	bindAddr              = flag.String("bindaddr", "", "MySQLChk bind address")
 	debug                 = flag.Bool("debug", false, "Debug mode. Will also print successfull 200 HTTP responses to stdout")
-	forceFail             = false
 	forceUp               = false
+	forceDown             = false
 	dataSourceName        = ""
 )
 
@@ -85,8 +85,8 @@ func main() {
 	log.Println("Listening...")
 	http.HandleFunc("/", checker.Root)
 	http.HandleFunc("/master", checker.Master)
-	http.HandleFunc("/fail", checker.Fail)
 	http.HandleFunc("/up", checker.Up)
+	http.HandleFunc("/down", checker.Down)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", *bindAddr, *bindPort), nil))
 }
 
@@ -110,22 +110,22 @@ func parseConfigFile() {
 }
 
 func (c *Checker) Root(w http.ResponseWriter, r *http.Request) {
-	c.Clustercheck(w, r, *requireMaster, forceFail, forceUp)
+	c.Clustercheck(w, r, *requireMaster, forceUp, forceDown)
 }
 
 func (c *Checker) Master(w http.ResponseWriter, r *http.Request) {
-	c.Clustercheck(w, r, true, forceFail, forceUp)
-}
-
-func (c *Checker) Fail(w http.ResponseWriter, r *http.Request) {
-	c.Clustercheck(w, r, *requireMaster, true, forceUp)
+	c.Clustercheck(w, r, true, forceUp, forceDown)
 }
 
 func (c *Checker) Up(w http.ResponseWriter, r *http.Request) {
-	c.Clustercheck(w, r, *requireMaster, forceFail, true)
+	c.Clustercheck(w, r, *requireMaster, true, forceDown)
 }
 
-func (c *Checker) Clustercheck(w http.ResponseWriter, r *http.Request, requireMaster, forceFail, forceUp bool) {
+func (c *Checker) Down(w http.ResponseWriter, r *http.Request) {
+	c.Clustercheck(w, r, *requireMaster, forceUp, true)
+}
+
+func (c *Checker) Clustercheck(w http.ResponseWriter, r *http.Request, requireMaster, forceUp, forceDown bool) {
 	var fieldName, readOnly string
 	var wsrepLocalState int
 	var wsrepLocalIndex int
@@ -134,17 +134,17 @@ func (c *Checker) Clustercheck(w http.ResponseWriter, r *http.Request, requireMa
 
 	if forceUp {
 		if *debug {
-			log.Println(remoteIp, "Node OK by forceUp true")
+			log.Println(remoteIp, "Node available by forceUp")
 		}
-		fmt.Fprint(w, "Node OK by forceUp true\n")
+		fmt.Fprint(w, "Node available by forceUp\n")
 		return
 	}
 
-	if forceFail {
+	if forceDown {
 		if *debug {
-			log.Println(remoteIp, "Node FAIL by forceFail true")
+			log.Println(remoteIp, "Node unavailable by forceDown")
 		}
-		http.Error(w, "Node FAIL by forceFail true", http.StatusServiceUnavailable)
+		http.Error(w, "Node unavailable by forceDown", http.StatusServiceUnavailable)
 		return
 	}
 
