@@ -2,7 +2,7 @@
 Description=Galera Clustercheck service
 
 [Service]
-Type=simple
+Type=notify
 ExecStart=/usr/sbin/galera-clustercheck
 DynamicUser=true
 ConfigurationDirectory=galera-clustercheck

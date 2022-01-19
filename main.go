@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/coreos/go-systemd/daemon"
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -87,6 +88,7 @@ func main() {
 	http.HandleFunc("/master", checker.Master)
 	http.HandleFunc("/up", checker.Up)
 	http.HandleFunc("/down", checker.Down)
+	_, _ = daemon.SdNotify(false, daemon.SdNotifyReady)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", *bindAddr, *bindPort), nil))
 }
 
